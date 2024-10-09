@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Customizable Water Ripple Effect Website</title>
     <style>
-        /* Basic styling for the page layout */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-image: linear-gradient(to bottom right, #6dd5ed, #2193b0);
@@ -51,34 +50,36 @@
     </div>
 
     <script>
-        // Get the canvas element and its 2D rendering context
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
-        // Set the path to your image here
-        const imageSrc = 'your-image.jpg'; // CUSTOMIZE: Replace with your image path
+        const imageSrc = 'your-image2.png'; // CUSTOMIZE: Replace with your image path
         const image = new Image();
         image.src = imageSrc;
 
         let width, height;
 
         // Ripple effect parameters - CUSTOMIZE these to adjust the effect
-        const rippleRadius = 10;    // Size of the ripple (increase for larger ripples)
-        const damping = 0.98;       // How quickly the ripples lose energy (0-1, lower values = faster fade)
-        const decay = 0.95;         // How fast the ripples fade out (0-1, lower values = faster fade)
+        const rippleRadius = 20;    // Size of the ripple (increased for larger ripples)
+        const damping = 0.95;       // How quickly the ripples lose energy (0-1, higher values = faster fade)
+        const decay = 0.95;         // How fast the ripples fade out (0-1, higher values = faster fade)
         const rippleStrength = 2048; // Strength of the ripple effect (increase for more pronounced ripples)
+        const offsetX = 0;
+        const offsetY = 0;
 
-        // Fine-tuning offsets - adjust if ripples are slightly misaligned
-        const offsetX = 0; // Horizontal offset (positive = right, negative = left)
-        const offsetY = 0; // Vertical offset (positive = down, negative = up)
-
-        // Initialize buffers for the ripple effect
         let rippleMap = [];
         let lastMap = [];
         let ripple;
         let texture;
 
-        // Function to set up the canvas and start the animation
+        let clickEffectActive = false;
+        let clickEffectState = 'none';
+        let clickEffectStartTime = 0;
+        let heartbeatCount = 0;
+        const heartbeatMax = 5;
+        const brighteningSize = 0.15; // Increased brightness
+        const heartbeatScale = 10; // Larger heartbeat effect
+
         image.onload = function () {
             width = canvas.width = image.width;
             height = canvas.height = image.height;
@@ -88,7 +89,6 @@
             texture = ctx.getImageData(0, 0, width, height);
             ripple = ctx.getImageData(0, 0, width, height);
 
-            // Initialize ripple maps
             for (let i = 0; i < width * height; i++) {
                 rippleMap[i] = 0;
                 lastMap[i] = 0;
@@ -97,17 +97,16 @@
             animate();
         };
 
-        // Function to create a ripple at the given coordinates
         function disturb(clientX, clientY) {
+            if (clickEffectActive) return;
+
             const canvasRect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / canvasRect.width;
             const scaleY = canvas.height / canvasRect.height;
 
-            // Convert mouse coordinates to canvas pixel coordinates
             const x = (clientX - canvasRect.left) * scaleX + offsetX;
             const y = (clientY - canvasRect.top) * scaleY + offsetY;
 
-            // Create the ripple effect
             for (let j = Math.floor(y - rippleRadius); j < Math.floor(y + rippleRadius); j++) {
                 for (let k = Math.floor(x - rippleRadius); k < Math.floor(x + rippleRadius); k++) {
                     if (k >= 0 && k < width && j >= 0 && j < height) {
@@ -121,7 +120,6 @@
             }
         }
 
-        // Function to render the ripple effect
         function renderRipple() {
             let mapIndex = width;
             const _width = width;
@@ -135,7 +133,6 @@
                 for (let x = 1; x < _width - 1; x++) {
                     let idx = mapIndex + x;
 
-                    // Wave propagation formula
                     _rippleMap[idx] = (
                         (_lastMap[idx - 1] +
                         _lastMap[idx + 1] +
@@ -144,14 +141,12 @@
                     ) - _rippleMap[idx];
                     _rippleMap[idx] *= damping * decay;
 
-                    // Calculate pixel displacement
                     let data = _rippleMap[idx];
 
                     if (data !== 0) {
                         let tx = x + ((_rippleMap[idx - 1] - data) * 0.05);
                         let ty = y + ((_rippleMap[idx - _width] - data) * 0.05);
 
-                        // Ensure we're within bounds
                         if (tx >= _width) tx = _width - 1;
                         if (tx < 0) tx = 0;
                         if (ty >= _height) ty = _height - 1;
@@ -160,7 +155,6 @@
                         const pos = ((ty | 0) * _width + (tx | 0)) * 4;
                         const i = idx * 4;
 
-                        // Displace the pixel
                         _rippleData[i] = _textureData[pos];
                         _rippleData[i + 1] = _textureData[pos + 1];
                         _rippleData[i + 2] = _textureData[pos + 2];
@@ -169,28 +163,121 @@
                 mapIndex += _width;
             }
 
-            // Swap the buffers
             let temp = lastMap;
             lastMap = rippleMap;
             rippleMap = temp;
 
-            // Update the canvas with the new ripple effect
             ctx.putImageData(ripple, 0, 0);
         }
 
-        // Animation loop
+        function handleClickEffect() {
+            const currentTime = performance.now();
+            const elapsedTime = currentTime - clickEffectStartTime;
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            if (clickEffectState === 'brightening') {
+                const duration = 2500;
+                const progress = Math.min(elapsedTime / duration, 1);
+
+                ctx.putImageData(texture, 0, 0);
+
+                ctx.save();
+                ctx.globalAlpha = progress * brighteningSize; // Increased brightness
+                const gradient = ctx.createRadialGradient(
+                    centerX, centerY, 0,
+                    centerX, centerY, width / 6
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 2)'); // Brighter center
+                gradient.addColorStop(0.3, 'rgba(255, 255, 255, 1)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, width / 6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.restore();
+
+                if (progress >= 1) {
+                    clickEffectState = 'flash';
+                    clickEffectStartTime = currentTime;
+                }
+            } else if (clickEffectState === 'flash') {
+                const duration = 200;
+                const progress = elapsedTime / duration;
+
+                ctx.putImageData(texture, 0, 0);
+
+                if (progress <= 1) {
+                    ctx.save();
+                    ctx.globalAlpha = 1 - progress;
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.restore();
+                } else {
+                    clickEffectState = 'heartbeat';
+                    clickEffectStartTime = currentTime;
+                    heartbeatCount = 0;
+                }
+            } else if (clickEffectState === 'heartbeat') {
+                const heartbeatDuration = 1000;
+                const timeSinceLastBeat = currentTime - clickEffectStartTime;
+
+                ctx.putImageData(texture, 0, 0);
+
+                const beatProgress = (timeSinceLastBeat % heartbeatDuration) / heartbeatDuration;
+                const scale = 1 + 0.05 * Math.sin(beatProgress * 2 * Math.PI) * heartbeatScale;
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.scale(scale, scale);
+                ctx.translate(-centerX, -centerY);
+
+                ctx.globalAlpha = 0.9; // Increased brightness
+                const gradient = ctx.createRadialGradient(
+                    centerX, centerY, 0,
+                    centerX, centerY, width / 6
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 2)'); // Brighter center
+                gradient.addColorStop(0.3, 'rgba(255, 255, 255, 1)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, width / 6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.restore();
+
+                if (timeSinceLastBeat >= heartbeatDuration) {
+                    heartbeatCount++;
+                    clickEffectStartTime = currentTime;
+                }
+
+                if (heartbeatCount >= heartbeatMax) {
+                    clickEffectActive = false;
+                    clickEffectState = 'none';
+                }
+            }
+        }
+
         function animate() {
-            renderRipple();
+            if (clickEffectActive) {
+                handleClickEffect();
+            } else {
+                renderRipple();
+            }
             requestAnimationFrame(animate);
         }
 
-        // Event listeners for mouse movement and clicks
         canvas.addEventListener('mousemove', function (e) {
             disturb(e.clientX, e.clientY);
         });
 
         canvas.addEventListener('mousedown', function (e) {
-            disturb(e.clientX, e.clientY);
+            if (!clickEffectActive) {
+                clickEffectActive = true;
+                clickEffectState = 'brightening';
+                clickEffectStartTime = performance.now();
+            }
         });
     </script>
 </body>
