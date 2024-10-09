@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Improved Water Ripple Effect Website</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-image: linear-gradient(to bottom right, #6dd5ed, #2193b0);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            text-align: center;
+            color: #fff;
+        }
+        #image-container {
+            position: relative;
+            display: inline-block;
+            border: 5px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        canvas {
+            display: block;
+        }
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        p {
+            font-size: 18px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Improved Water Ripple Effect</h1>
+        <div id="image-container">
+            <canvas id="canvas"></canvas>
+        </div>
+        <p>Move your mouse over the image to see the water ripple effect!</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const imageSrc = 'your-image.jpg'; // Replace with your image path
+        const image = new Image();
+        image.src = imageSrc;
+
+        let width, height;
+
+        // Improved ripple effect parameters
+        const rippleRadius = 10;
+        const damping = 0.98;
+        const decay = 0.95;
+
+        // Initialize buffers
+        let rippleMap = [];
+        let lastMap = [];
+        let ripple;
+        let texture;
+
+        image.onload = function () {
+            width = canvas.width = image.width;
+            height = canvas.height = image.height;
+
+            ctx.drawImage(image, 0, 0, width, height);
+
+            texture = ctx.getImageData(0, 0, width, height);
+            ripple = ctx.getImageData(0, 0, width, height);
+
+            for (let i = 0; i < width * height; i++) {
+                rippleMap[i] = 0;
+                lastMap[i] = 0;
+            }
+
+            animate();
+        };
+
+        function disturb(x, y) {
+            const canvasRect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / canvasRect.width;
+            const scaleY = canvas.height / canvasRect.height;
+
+            x = (x - canvasRect.left) * scaleX;
+            y = (y - canvasRect.top) * scaleY;
+
+            for (let j = y - rippleRadius; j < y + rippleRadius; j++) {
+                for (let k = x - rippleRadius; k < x + rippleRadius; k++) {
+                    if (k >= 0 && k < width && j >= 0 && j < height) {
+                        const distance = Math.sqrt(Math.pow(k - x, 2) + Math.pow(j - y, 2));
+                        if (distance < rippleRadius) {
+                            const strength = (1 - distance / rippleRadius) * 2048;
+                            rippleMap[j * width + k] += strength;
+                        }
+                    }
+                }
+            }
+        }
+
+        function renderRipple() {
+            let mapIndex = width;
+            const _width = width;
+            const _height = height;
+            const _rippleMap = rippleMap;
+            const _lastMap = lastMap;
+            const _textureData = texture.data;
+            const _rippleData = ripple.data;
+
+            for (let y = 1; y < _height - 1; y++) {
+                for (let x = 1; x < _width - 1; x++) {
+                    let idx = mapIndex + x;
+
+                    // Modified wave propagation formula
+                    _rippleMap[idx] = (
+                        (_lastMap[idx - 1] +
+                        _lastMap[idx + 1] +
+                        _lastMap[idx - _width] +
+                        _lastMap[idx + _width]) * 0.5
+                    ) - _rippleMap[idx];
+                    _rippleMap[idx] = _rippleMap[idx] * damping * decay;
+
+                    // Difference in height
+                    let data = _rippleMap[idx];
+
+                    if (data !== 0) {
+                        // Calculate offset
+                        let tx = x + ((_rippleMap[idx - 1] - data) * 0.05);
+                        let ty = y + ((_rippleMap[idx - _width] - data) * 0.05);
+
+                        // Bounds check
+                        if (tx >= _width) tx = _width - 1;
+                        if (tx < 0) tx = 0;
+                        if (ty >= _height) ty = _height - 1;
+                        if (ty < 0) ty = 0;
+
+                        const pos = ((ty | 0) * _width + (tx | 0)) * 4;
+                        const i = idx * 4;
+
+                        _rippleData[i] = _textureData[pos];
+                        _rippleData[i + 1] = _textureData[pos + 1];
+                        _rippleData[i + 2] = _textureData[pos + 2];
+                    }
+                }
+                mapIndex += _width;
+            }
+
+            // Swap the buffers
+            let temp = lastMap;
+            lastMap = rippleMap;
+            rippleMap = temp;
+
+            ctx.putImageData(ripple, 0, 0);
+        }
+
+        function animate() {
+            renderRipple();
+            requestAnimationFrame(animate);
+        }
+
+        canvas.addEventListener('mousemove', function (e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            disturb(x, y);
+        });
+
+        canvas.addEventListener('mousedown', function (e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            disturb(x, y);
+        });
+    </script>
+</body>
+</html>
