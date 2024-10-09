@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Improved Water Ripple Effect Website</title>
+    <title>Customizable Water Ripple Effect Website</title>
     <style>
+        /* Basic styling for the page layout */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-image: linear-gradient(to bottom right, #6dd5ed, #2193b0);
@@ -42,7 +43,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Improved Water Ripple Effect</h1>
+        <h1>Customizable Water Ripple Effect</h1>
         <div id="image-container">
             <canvas id="canvas"></canvas>
         </div>
@@ -50,26 +51,34 @@
     </div>
 
     <script>
+        // Get the canvas element and its 2D rendering context
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
-        const imageSrc = 'your-image.jpg'; // Replace with your image path
+        // Set the path to your image here
+        const imageSrc = 'your-image.jpg'; // CUSTOMIZE: Replace with your image path
         const image = new Image();
         image.src = imageSrc;
 
         let width, height;
 
-        // Improved ripple effect parameters
-        const rippleRadius = 10;
-        const damping = 0.98;
-        const decay = 0.95;
+        // Ripple effect parameters - CUSTOMIZE these to adjust the effect
+        const rippleRadius = 10;    // Size of the ripple (increase for larger ripples)
+        const damping = 0.98;       // How quickly the ripples lose energy (0-1, lower values = faster fade)
+        const decay = 0.95;         // How fast the ripples fade out (0-1, lower values = faster fade)
+        const rippleStrength = 2048; // Strength of the ripple effect (increase for more pronounced ripples)
 
-        // Initialize buffers
+        // Fine-tuning offsets - adjust if ripples are slightly misaligned
+        const offsetX = 0; // Horizontal offset (positive = right, negative = left)
+        const offsetY = 0; // Vertical offset (positive = down, negative = up)
+
+        // Initialize buffers for the ripple effect
         let rippleMap = [];
         let lastMap = [];
         let ripple;
         let texture;
 
+        // Function to set up the canvas and start the animation
         image.onload = function () {
             width = canvas.width = image.width;
             height = canvas.height = image.height;
@@ -79,6 +88,7 @@
             texture = ctx.getImageData(0, 0, width, height);
             ripple = ctx.getImageData(0, 0, width, height);
 
+            // Initialize ripple maps
             for (let i = 0; i < width * height; i++) {
                 rippleMap[i] = 0;
                 lastMap[i] = 0;
@@ -87,20 +97,23 @@
             animate();
         };
 
-        function disturb(x, y) {
+        // Function to create a ripple at the given coordinates
+        function disturb(clientX, clientY) {
             const canvasRect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / canvasRect.width;
             const scaleY = canvas.height / canvasRect.height;
 
-            x = (x - canvasRect.left) * scaleX;
-            y = (y - canvasRect.top) * scaleY;
+            // Convert mouse coordinates to canvas pixel coordinates
+            const x = (clientX - canvasRect.left) * scaleX + offsetX;
+            const y = (clientY - canvasRect.top) * scaleY + offsetY;
 
-            for (let j = y - rippleRadius; j < y + rippleRadius; j++) {
-                for (let k = x - rippleRadius; k < x + rippleRadius; k++) {
+            // Create the ripple effect
+            for (let j = Math.floor(y - rippleRadius); j < Math.floor(y + rippleRadius); j++) {
+                for (let k = Math.floor(x - rippleRadius); k < Math.floor(x + rippleRadius); k++) {
                     if (k >= 0 && k < width && j >= 0 && j < height) {
                         const distance = Math.sqrt(Math.pow(k - x, 2) + Math.pow(j - y, 2));
                         if (distance < rippleRadius) {
-                            const strength = (1 - distance / rippleRadius) * 2048;
+                            const strength = (1 - distance / rippleRadius) * rippleStrength;
                             rippleMap[j * width + k] += strength;
                         }
                     }
@@ -108,6 +121,7 @@
             }
         }
 
+        // Function to render the ripple effect
         function renderRipple() {
             let mapIndex = width;
             const _width = width;
@@ -121,24 +135,23 @@
                 for (let x = 1; x < _width - 1; x++) {
                     let idx = mapIndex + x;
 
-                    // Modified wave propagation formula
+                    // Wave propagation formula
                     _rippleMap[idx] = (
                         (_lastMap[idx - 1] +
                         _lastMap[idx + 1] +
                         _lastMap[idx - _width] +
                         _lastMap[idx + _width]) * 0.5
                     ) - _rippleMap[idx];
-                    _rippleMap[idx] = _rippleMap[idx] * damping * decay;
+                    _rippleMap[idx] *= damping * decay;
 
-                    // Difference in height
+                    // Calculate pixel displacement
                     let data = _rippleMap[idx];
 
                     if (data !== 0) {
-                        // Calculate offset
                         let tx = x + ((_rippleMap[idx - 1] - data) * 0.05);
                         let ty = y + ((_rippleMap[idx - _width] - data) * 0.05);
 
-                        // Bounds check
+                        // Ensure we're within bounds
                         if (tx >= _width) tx = _width - 1;
                         if (tx < 0) tx = 0;
                         if (ty >= _height) ty = _height - 1;
@@ -147,6 +160,7 @@
                         const pos = ((ty | 0) * _width + (tx | 0)) * 4;
                         const i = idx * 4;
 
+                        // Displace the pixel
                         _rippleData[i] = _textureData[pos];
                         _rippleData[i + 1] = _textureData[pos + 1];
                         _rippleData[i + 2] = _textureData[pos + 2];
@@ -160,26 +174,23 @@
             lastMap = rippleMap;
             rippleMap = temp;
 
+            // Update the canvas with the new ripple effect
             ctx.putImageData(ripple, 0, 0);
         }
 
+        // Animation loop
         function animate() {
             renderRipple();
             requestAnimationFrame(animate);
         }
 
+        // Event listeners for mouse movement and clicks
         canvas.addEventListener('mousemove', function (e) {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            disturb(x, y);
+            disturb(e.clientX, e.clientY);
         });
 
         canvas.addEventListener('mousedown', function (e) {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            disturb(x, y);
+            disturb(e.clientX, e.clientY);
         });
     </script>
 </body>
