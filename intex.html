@@ -32,7 +32,6 @@
         h1 {
             font-size: 48px;
             margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
         p {
             font-size: 18px;
@@ -111,7 +110,7 @@
                 for (let k = Math.floor(x - rippleRadius); k < Math.floor(x + rippleRadius); k++) {
                     if (k >= 0 && k < width && j >= 0 && j < height) {
                         const distance = Math.sqrt(Math.pow(k - x, 2) + Math.pow(j - y, 2));
-                        if (distance < rippleRadius) {
+                        if (distance <= rippleRadius) {
                             const strength = (1 - distance / rippleRadius) * rippleStrength;
                             rippleMap[j * width + k] += strength;
                         }
